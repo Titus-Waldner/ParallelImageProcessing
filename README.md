@@ -17,113 +17,109 @@ Merged Blurred Image:
 ![image](https://github.com/user-attachments/assets/17330cbe-4adb-417f-9447-49b8f7ee4318)
 
 Overview
+Overview
 
+This project explores parallel image processing techniques using MPI and OpenCV. The lab focuses on distributing and manipulating image data across multiple processors for performance optimization. Key techniques include:
 
-This project demonstrates parallel image processing using MPI and OpenCV, focusing on distributing image data among multiple processors to apply filters and transformations in parallel. The lab consists of four parts:
+    Scatterv & Gatherv for data distribution and collection.
+    Halo exchange for handling image borders.
+    Parallel convolution kernels for image processing.
 
-Serial implementation of a convolution kernel.
+Requirements
 
-Parallel distribution and collection of numerical data with halos using MPI.
+    MPI (Message Passing Interface)
+    OpenCV (for image processing)
+    C++ Compiler supporting MPI (e.g., mpic++)
+    Test Image (pic.jpg) placed in the compilation directory
 
-Image segmentation, modification, and reassembly using MPI.
+Lab Components
+1. Serial Convolution Kernel (Lab2_1.cpp)
 
-Parallel image blurring using convolution and MPI.
+    Converts an OpenMP-based convolution kernel into a serial algorithm.
+    Uses OpenCV to load and display an image before and after blurring.
+    Takes image filename and blur level as input.
+    Example usage:
 
-Setup Instructions
+    ./Lab2_1 pic.jpg 5
 
-Ensure you have MPI installed (e.g., OpenMPI or MPICH).
+    Outputs the processed image with the specified blur level.
 
-Install OpenCV for image processing.
+2. Data Distribution with Halos (Lab2_2.cpp)
 
-Place pic.jpg in the compilation folder before running the program.
+    Demonstrates scatterv/gatherv for distributing and recollecting data while handling halo exchange.
+    Works with arbitrary halo sizes and processor counts (≥2).
+    Uses MPI data types to ensure efficient communication.
 
-Compile the provided C++ files using an MPI-enabled compiler.
+Example Outputs:
 
-Project Structure
+    With 8 processors, halo = 3
+    With 3 processors, halo = 5
 
-Part 1: Serial Convolution Kernel
+3. Parallel Image Segmentation (Lab2_3.cpp)
 
-Converts a given convolution kernel into a serial implementation.
+    Splits an image into segments distributed among processors.
+    Each segment is color-coded according to processor rank.
+    Uses MPI_Bcast, scatterv, and gatherv for communication.
+    Displays the processed image and reconstructs it at rank 0.
 
-Removes OpenMP parallelization for compatibility.
+4. Parallel Image Blurring (Lab2_4.cpp)
 
-Uses OpenCV functions to display images before and after applying the filter.
+    Distributes an image, applies a blur, and then merges the results.
+    Implements a convolution kernel similar to Part 1.
+    MPI-based parallelization ensures each processor applies the filter on its segment.
+    The halo region is NOT blurred, ensuring seamless merging.
 
-Run with: ./lab2_part1 <filename> <blur_level>
+Example Outputs:
 
-Part 2: Distributed Numerical Data Processing with Halos
+    Distributed Blurred Image
+    Merged Blurred Image
+    Comparison to Serial Blurring (serial_blurred.jpg)
 
-Distributes a dataset across multiple MPI processes.
+Execution Instructions
+Compiling the Code
 
-Each process receives a section of data along with halo elements for boundary computations.
+To compile the programs:
 
-Utilizes MPI_Scatterv for distribution and MPI_Gatherv for collection.
+mpic++ -o Lab2_1 Lab2_1.cpp `pkg-config --cflags --libs opencv4`
+mpic++ -o Lab2_2 Lab2_2.cpp
+mpic++ -o Lab2_3 Lab2_3.cpp `pkg-config --cflags --libs opencv4`
+mpic++ -o Lab2_4 Lab2_4.cpp `pkg-config --cflags --libs opencv4`
 
-Usage: Run the executable with multiple processors.
+Running the Programs
 
-Part 3: Image Segmentation and Reconstruction
+Run using mpirun with the desired number of processors:
 
-Splits an image into multiple sections with halo rows.
-
-Each process modifies its assigned portion of the image.
-
-Uses MPI_Scatterv and MPI_Gatherv for efficient data transfer.
-
-Outputs individual and merged image results.
-
-Usage: mpirun -np <num_processes> ./lab2_part3
-
-Part 4: Parallel Image Blurring
-
-Divides an image into sections for parallel convolution.
-
-Applies a blur kernel to each section.
-
-Merges the modified sections while preserving image integrity.
-
-Uses OpenCV to compare results with a serial implementation.
-
-Usage: mpirun -np <num_processes> ./lab2_part4
+mpirun -np 4 ./Lab2_2
+mpirun -np 3 ./Lab2_3
+mpirun -np 4 ./Lab2_4 pic.jpg
 
 Performance Analysis
+Speedup Analysis
 
-Speedup Comparison
+Speedup was measured using 1 to 8 cores for sharpening and blurring kernels.
+Processors	Sharpening Time (s)	Speedup	Blurring Time (s)	Speedup
+1	0.735	1.00	4.82	1.00
+2	0.671	1.09	4.42	1.09
+4	0.515	1.42	4.26	1.13
+8	0.581	1.26	3.12	1.54
+Observations
 
-Performance was measured by running the blur and sharpen filters on a 2560x1440 image using 1-8 processors. Key findings:
-
-Parallelization improves execution time, but speedup is not always linear due to overhead.
-
-Larger images benefit more from parallel processing.
-
-Guided scheduling generally provides better load balancing compared to static or dynamic scheduling.
-
-Kernel Effects
-
-Two different convolution kernels were tested:
-
-Laplacian Kernel (Sharpening) - Enhances edges by approximating the second spatial derivative.
-
-Gaussian Blur Kernel - Smoothens the image by averaging neighboring pixel values.
+    Speedup increases with core count but is not linear due to overhead.
+    Blurring takes longer than sharpening due to the larger convolution operation.
+    Larger images benefit more from parallelization.
 
 Alternative Partitioning Strategies
 
-Besides row-based partitioning, the following approaches could be considered:
+Instead of static row partitioning, other approaches could be:
 
-Column Partitioning - Useful for images with non-uniform height-to-width ratios.
+    Column Partitioning: Each processor handles vertical slices.
+        Pros: Similar to row partitioning.
+        Cons: No major advantage unless aspect ratio favors vertical slicing.
 
-Block Partitioning - Divides the image into small square regions, ensuring better parallel load distribution.
+    Block Partitioning: Divides the image into a grid of blocks.
+        Pros: Better balance across processors.
+        Cons: Requires more complex data exchange.
 
-Tile Partitioning - Uses small fixed-size tiles assigned dynamically to processes for better scalability.
-
-Execution Instructions
-
-To compile and run any part of the project:
-
-mpic++ -o lab2_partX lab2_partX.cpp `pkg-config --cflags --libs opencv4`
-mpirun -np <num_processes> ./lab2_partX
-
-Replace X with the part number (1-4) and adjust <num_processes> accordingly.
-
-Conclusion
-
-This lab provided hands-on experience with MPI's scatterv and gatherv functions for distributing and collecting image data. By leveraging parallelism, image processing tasks such as blurring and segmentation were significantly optimized. The experiments confirmed that effective partitioning and scheduling strategies are critical for maximizing performance in parallel image processing.
+    Tile-Based Partitioning: Assigns small tiles dynamically to processors.
+        Pros: Handles regions of varying complexity well.
+        Cons: Higher scheduling overhead.
